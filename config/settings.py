@@ -93,13 +93,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
-
 AUTH_USER_MODEL = "booking.CustomUser"
 
 REST_FRAMEWORK = {
@@ -118,3 +111,18 @@ SIMPLE_JWT = {
 
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID')
+
+MAILERS = {
+    "default": {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": "smtp.gmail.com",
+            "port": 587,
+            "username": env("EMAIL_HOST_USER"),
+            "password": env("EMAIL_HOST_PASSWORD"),
+            "use_tls": True,
+        }
+    }
+}
+
+DEFAULT_FROM_EMAIL = env("EMAIL_HOST_USER")

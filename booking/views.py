@@ -9,6 +9,7 @@ from .serializer import (
     User,
 )
 from .telegram import send_telegram_notification
+from .services import send_booking_confirmation_email
 
 
 class RegisterView(generics.CreateAPIView):
@@ -46,6 +47,7 @@ class CreateBookingView(generics.CreateAPIView):
         bookings = serializer.save()
 
         send_telegram_notification(bookings)
+        send_booking_confirmation_email(bookings)
 
         response_data = BookingSerializer(bookings, many=True).data
         return Response(response_data, status=status.HTTP_201_CREATED)
