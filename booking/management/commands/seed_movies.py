@@ -1,6 +1,16 @@
-from django.core.management.base import BaseCommand
+from datetime import datetime, time, timedelta
 
-from booking.models import Movie
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from booking.models import Hall, Movie, Showtime
+
+
+HALLS = [
+    {"name": "Hall 1", "rows": 10, "seats_per_row": 12},
+    {"name": "Hall 2", "rows": 8, "seats_per_row": 10},
+    {"name": "IMAX", "rows": 12, "seats_per_row": 14},
+]
 
 
 MOVIES = [
@@ -56,18 +66,43 @@ MOVIES = [
 
 
 class Command(BaseCommand):
-    help = "Create sample movies that do not already exist."
+    help = "Create sample movies and upcoming showtimes that do not already exist."
 
     def handle(self, *args, **options):
-        created_count = 0
-        for movie_data in MOVIES:
-            _, created = Movie.objects.get_or_create(
-                title=movie_data["title"], defaults=movie_data
+        movie_count = 0
+        showtime_count = 0
+        show_date = timezone.localdate() + timedelta(days=1)
+        halls = [
+            Hall.objects.get_or_create(name=hall_data["name"], defaults=hall_data)[0]
+            for hall_data in HALLS
+        ]
+
+        for movie_index, movie_data in enumerate(MOVIES):
+            movie_fields = {
+                key: value for key, value in movie_data.items() if key != "price"
+            }
+            movie, created = Movie.objects.get_or_create(
+                title=movie_data["title"], defaults=movie_fields
             )
-            created_count += created
+            movie_count += created
+
+            for session_index in range(2):
+                schedule_index = movie_index * 2 + session_index
+                hall = halls[schedule_index % len(halls)]
+                hour = 10 + (schedule_index // len(halls)) * 3
+                start_time = timezone.make_aware(
+                    datetime.combine(show_date, time(hour=hour))
+                )
+                _, created = Showtime.objects.update_or_create(
+                    movie=movie,
+                    start_time=start_time,
+                    defaults={"hall": hall, "price": movie_data["price"]},
+                )
+                showtime_count += created
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created {created_count} of {len(MOVIES)} sample movies."
+                f"Created {movie_count} of {len(MOVIES)} sample movies and "
+                f"{showtime_count} upcoming showtimes."
             )
         )

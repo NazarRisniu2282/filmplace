@@ -1,6 +1,8 @@
-from rest_framework import serializers
-from .models import Booking, Movie, CustomUser
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework import serializers
+
+from .models import Booking, Movie, Showtime, Hall
 
 User = get_user_model()
 
@@ -38,15 +40,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("password_confirm")
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            email=validated_data.get("email", ""),
-            password=validated_data["password"],
-            first_name=validated_data.get("first_name", ""),
-            last_name=validated_data.get("last_name", ""),
-            phone_number=validated_data.get("phone_number", ""),
-        )
-        return user
+        return User.objects.create_user(**validated_data)
 
 
 class MovieSerializer(serializers.ModelSerializer):
@@ -55,22 +49,61 @@ class MovieSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class HallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Hall
+        fields = "__all__"
+
+
+class ShowtimeSerializer(serializers.ModelSerializer):
+    movie = MovieSerializer(read_only=True)
+    movie_id = serializers.PrimaryKeyRelatedField(
+        queryset=Movie.objects.all(), source="movie", write_only=True
+    )
+    hall = HallSerializer(read_only=True)
+    hall_id = serializers.PrimaryKeyRelatedField(
+        queryset=Hall.objects.all(), source="hall", write_only=True
+    )
+    is_expired = serializers.ReadOnlyField()
+    is_active = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Showtime
+        fields = [
+            "id",
+            "movie",
+            "movie_id",
+            "hall",
+            "hall_id",
+            "start_time",
+            "end_time",
+            "price",
+            "is_expired",
+            "is_active",
+        ]
+
+
 class BookingSerializer(serializers.ModelSerializer):
+    """
+    Серіалайзер для відображення детальної інформації про квиток.
+    """
+    showtime = ShowtimeSerializer(read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+    is_expired = serializers.ReadOnlyField()
+    status = serializers.ReadOnlyField()
+
     class Meta:
         model = Booking
-        fields = ['id', 'movie', 'showtime', 'row', 'place', 'created_at']
-
-    def validate(self, attrs):
-        movie = attrs.get('movie')
-        showtime = attrs.get('showtime')
-        row = attrs.get('row')
-        place = attrs.get('place')
-
-        if Booking.objects.filter(movie=movie, showtime=showtime, row=row, place=place).exists():
-            raise serializers.ValidationError({
-                "non_field_errors": [f"Місце {place} у ряду {row} на цей сеанс вже заброньовано!"]
-            })
-        return attrs
+        fields = [
+            "id",
+            "user",
+            "showtime",
+            "row",
+            "place",
+            "created_at",
+            "is_expired",
+            "status",
+        ]
 
 
 class SeatSerializer(serializers.Serializer):
@@ -79,51 +112,73 @@ class SeatSerializer(serializers.Serializer):
 
 
 class BookingCreateSerializer(serializers.Serializer):
-    """
-    Масове бронювання місць на сеанс.
-    """
-    movie = serializers.PrimaryKeyRelatedField(queryset=Movie.objects.all())
-    showtime = serializers.DateTimeField()
+    showtime = serializers.PrimaryKeyRelatedField(
+        queryset=Showtime.objects.select_related("hall").all()
+    )
     seats = SeatSerializer(many=True, allow_empty=False)
 
     def validate(self, attrs):
-        movie = attrs['movie']
-        showtime = attrs['showtime']
-        seats = attrs['seats']
+        showtime = attrs["showtime"]
+        seats = attrs["seats"]
+        hall = showtime.hall
 
-        seat_tuples = [(s['row'], s['place']) for s in seats]
+        # 1. Перевірка: чи сеанс не закінчився
+        if showtime.is_expired:
+            raise serializers.ValidationError(
+                {"showtime": "Неможливо забронювати квиток на сеанс, який вже минув!"}
+            )
+
+        # 2. Перевірка: чи не виходять місця за межі розмірів залу
+        invalid_seats = []
+        for s in seats:
+            if s["row"] > hall.rows or s["place"] > hall.seats_per_row:
+                invalid_seats.append(f"Ряд {s['row']}, Місце {s['place']}")
+
+        if invalid_seats:
+            raise serializers.ValidationError(
+                {
+                    "seats": f"У залі '{hall.name}' немає таких місць: {', '.join(invalid_seats)}. "
+                             f"Максимум рядів: {hall.rows}, місць у ряду: {hall.seats_per_row}."
+                }
+            )
+
+        # 3. Перевірка: чи немає дублікатів у запиті
+        seat_tuples = [(s["row"], s["place"]) for s in seats]
         if len(seat_tuples) != len(set(seat_tuples)):
-            raise serializers.ValidationError({"seats": "У запиті вказано однакові місця!"})
+            raise serializers.ValidationError(
+                {"seats": "У запиті вказано дубльовані місця!"}
+            )
 
-        for seat in seats:
-            already_booked = Booking.objects.filter(
-                movie=movie,
-                showtime=showtime,
-                row=seat['row'],
-                place=seat['place']
-            ).exists()
+        # 4. Перевірка: чи місця вже заброньовані в БД
+        occupied_seats = set(
+            Booking.objects.filter(showtime=showtime).values_list("row", "place")
+        )
+        already_booked = [
+            f"Ряд {s['row']}, Місце {s['place']}"
+            for s in seats
+            if (s["row"], s["place"]) in occupied_seats
+        ]
 
-            if already_booked:
-                raise serializers.ValidationError(
-                    {"seats": f"Місце {seat['place']} у ряду {seat['row']} вже зайняте на цей сеанс!"}
-                )
+        if already_booked:
+            raise serializers.ValidationError(
+                {"seats": f"Наступні місця вже зайняті: {', '.join(already_booked)}"}
+            )
+
         return attrs
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        movie = validated_data['movie']
-        showtime = validated_data['showtime']
-        seats = validated_data['seats']
+        user = self.context["request"].user
+        showtime = validated_data["showtime"]
+        seats = validated_data["seats"]
 
-        created_bookings = []
-        for seat in seats:
-            booking = Booking.objects.create(
+        bookings_to_create = [
+            Booking(
                 user=user,
-                movie=movie,
                 showtime=showtime,
-                row=seat['row'],
-                place=seat['place']
+                row=seat["row"],
+                place=seat["place"],
             )
-            created_bookings.append(booking)
+            for seat in seats
+        ]
 
-        return created_bookings
+        return Booking.objects.bulk_create(bookings_to_create)

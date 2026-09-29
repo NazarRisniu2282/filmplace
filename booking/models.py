@@ -1,7 +1,10 @@
+from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 
 class CustomUser(AbstractUser):
@@ -25,7 +28,7 @@ class Movie(models.Model):
         R18 = "18+", "18+"
 
     title = models.CharField(max_length=100)
-    description = models.CharField(max_length=300)
+    description = models.TextField(max_length=1000)
     duration = models.PositiveIntegerField(
         help_text="Тривалість у хвилинах"
     )
@@ -33,29 +36,101 @@ class Movie(models.Model):
     rating = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(10.0)]
     )
-    price = models.DecimalField(max_digits=8, decimal_places=2)
 
     def __str__(self):
         return self.title
 
 
+class Hall(models.Model):
+    name = models.CharField(max_length=50, verbose_name="Назва залу")  # Наприклад: "Зал 1", "IMAX"
+    rows = models.PositiveIntegerField(verbose_name="Кількість рядів")
+    seats_per_row = models.PositiveIntegerField(verbose_name="Місць у ряду")
+
+    class Meta:
+        verbose_name = "Кінозал"
+        verbose_name_plural = "Кінозали"
+
+    def __str__(self):
+        return f"{self.name} ({self.rows}р x {self.seats_per_row}м)"
+
+
+class Showtime(models.Model):
+    movie = models.ForeignKey(
+        Movie, on_delete=models.CASCADE, related_name="showtimes"
+    )
+    hall = models.ForeignKey(
+        Hall, on_delete=models.CASCADE, related_name="showtimes", verbose_name="Зал"
+    )
+    start_time = models.DateTimeField(verbose_name="Початок сеансу")
+    end_time = models.DateTimeField(
+        verbose_name="Кінець сеансу", blank=True, null=True
+    )
+    price = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name="Ціна квитка"
+    )
+
+    class Meta:
+        ordering = ["start_time"]
+        verbose_name = "Сеанс"
+        verbose_name_plural = "Сеанси"
+
+    def clean(self):
+        if self.end_time and self.end_time <= self.start_time:
+            raise ValidationError("Час завершення має бути пізніше часу початку.")
+
+    def save(self, *args, **kwargs):
+        if not self.end_time and self.movie and self.movie.duration:
+            self.end_time = self.start_time + timedelta(minutes=self.movie.duration)
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.end_time
+
+    @property
+    def is_active(self) -> bool:
+        now = timezone.now()
+        return self.start_time <= now < self.end_time
+
+    def __str__(self):
+        return f"{self.movie.title} | {self.hall.name} ({self.start_time.strftime('%d.%m %H:%M')})"
+
+
 class Booking(models.Model):
-    # Твої існуючі поля
-    movie = models.ForeignKey('Movie', on_delete=models.CASCADE, related_name='bookings')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bookings')
-    showtime = models.DateTimeField()
+    showtime = models.ForeignKey(
+        Showtime, on_delete=models.CASCADE, related_name="bookings"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookings"
+    )
     row = models.PositiveIntegerField()
     place = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
+        verbose_name = "Бронювання"
+        verbose_name_plural = "Бронювання"
         constraints = [
             models.UniqueConstraint(
-                fields=['movie', 'showtime', 'row', 'place'],
-                name='unique_booking_per_seat_and_showtime'
+                fields=["showtime", "row", "place"],
+                name="unique_booking_per_seat_and_showtime",
             )
         ]
 
+    @property
+    def is_expired(self) -> bool:
+        return self.showtime.is_expired
+
+    @property
+    def status(self) -> str:
+        now = timezone.now()
+        if now < self.showtime.start_time:
+            return "Upcoming"
+        elif self.showtime.start_time <= now < self.showtime.end_time:
+            return "In Progress"
+        return "Expired"
+
     def __str__(self):
-        return f"{self.movie.title} | {self.showtime} | Ряд {self.row}, Місце {self.place}"
+        return f"{self.user} | {self.showtime.movie.title} | Ряд {self.row}, Місце {self.place} [{self.status}]"

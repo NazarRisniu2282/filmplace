@@ -16,9 +16,11 @@ def send_telegram_notification(bookings):
         return
 
     first_booking = bookings[0]
-    movie_title = first_booking.movie.title
+    showtime = first_booking.showtime
+    movie_title = showtime.movie.title
     user = first_booking.user
-    showtime_str = first_booking.showtime.strftime("%d.%m.%Y %H:%M")
+    showtime_str = showtime.start_time.strftime("%d.%m.%Y %H:%M")
+    hall = showtime.hall
 
     user_name = f"{user.first_name} {user.last_name}".strip() or user.username
     user_phone = getattr(user, "phone_number", "Не вказано")
@@ -31,6 +33,7 @@ def send_telegram_notification(bookings):
         f"👤 <b>Клієнт:</b> {user_name}\n"
         f"📞 <b>Телефон:</b> {user_phone}\n"
         f"📅 <b>Сеанс:</b> {showtime_str}\n"
+        f"🏠 <b>Зала:</b> {hall}\n"
         f"🎟️ <b>Кількість:</b> {len(bookings)}\n\n"
         f"📍 <b>Заброньовані місця:</b>\n{seats_info}"
     )

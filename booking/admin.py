@@ -30,7 +30,7 @@ class MovieAdmin(admin.ModelAdmin):
     """
     Налаштування відображення фільмів.
     """
-    list_display = ('title', 'rate', 'duration', 'rating', 'price')
+    list_display = ('title', 'rate', 'duration', 'rating')
     
     list_filter = ('rate',)
     
@@ -39,17 +39,17 @@ class MovieAdmin(admin.ModelAdmin):
     ordering = ('title',)
 
 
-@admin.register(Booking)
-class BookingAdmin(admin.ModelAdmin):
-    """
-    Налаштування відображення бронювань.
-    """
-    list_display = ('movie', 'user', 'showtime', 'row', 'place', 'created_at')
+# @admin.register(Booking)
+# class BookingAdmin(admin.ModelAdmin):
+#     """
+#     Налаштування відображення бронювань.
+#     """
+#     list_display = ('movie', 'user', 'showtime', 'row', 'place', 'created_at')
     
-    list_filter = ('movie', 'showtime', 'created_at')
+#     list_filter = ('movie', 'showtime', 'created_at')
     
-    search_fields = ('movie__title', 'user__username', 'user__email')
+#     search_fields = ('movie__title', 'user__username', 'user__email')
     
-    date_hierarchy = 'showtime'
+#     date_hierarchy = 'showtime'
     
-    raw_id_fields = ('user', 'movie')
+#     raw_id_fields = ('user', 'movie')

@@ -1,6 +1,6 @@
-# tickets/services.py
-from django.core.mail import send_mail
 from django.conf import settings
+from django.core.mail import send_mail
+
 
 def send_booking_confirmation_email(bookings):
     """
@@ -11,8 +11,10 @@ def send_booking_confirmation_email(bookings):
 
     first_booking = bookings[0]
     user = first_booking.user
-    movie_title = first_booking.movie.title
-    showtime_str = first_booking.showtime.strftime("%d.%m.%Y %H:%M")
+    showtime = first_booking.showtime
+    movie_title = showtime.movie.title
+    showtime_str = showtime.start_time.strftime("%d.%m.%Y %H:%M")
+    hall = showtime.hall
 
     user_name = f"{user.first_name} {user.last_name}".strip() or user.username
     user_phone = getattr(user, "phone_number", "Не вказано")
@@ -20,7 +22,7 @@ def send_booking_confirmation_email(bookings):
     seats_info_plain = "\n".join([f"• Ряд {b.row}, Місце {b.place}" for b in bookings])
     seats_info_html = "<br>".join([f"• Ряд {b.row}, Місце {b.place}" for b in bookings])
 
-    subject = f'Підтвердження бронювання — {movie_title}'
+    subject = f"Підтвердження бронювання — {movie_title}"
 
     message = (
         f"Нове бронювання квитків!\n\n"
@@ -28,6 +30,7 @@ def send_booking_confirmation_email(bookings):
         f"Клієнт: {user_name}\n"
         f"Телефон: {user_phone}\n"
         f"Сеанс: {showtime_str}\n"
+        f"Зала: {hall}\n"
         f"Кількість: {len(bookings)}\n\n"
         f"Заброньовані місця:\n{seats_info_plain}"
     )
@@ -38,6 +41,7 @@ def send_booking_confirmation_email(bookings):
     <p>👤 <b>Клієнт:</b> {user_name}</p>
     <p>📞 <b>Телефон:</b> {user_phone}</p>
     <p>📅 <b>Сеанс:</b> {showtime_str}</p>
+    <p>🏠 <b>Зала:</b> {hall}</p>"
     <p>🎟️ <b>Кількість:</b> {len(bookings)}</p>
     <p>📍 <b>Заброньовані місця:</b><br>{seats_info_html}</p>
     """
