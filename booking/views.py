@@ -14,6 +14,7 @@ from .serializer import (
 )
 from .services import send_booking_confirmation_email
 from .telegram import send_telegram_notification
+from rest_framework.decorators import action
 
 
 class RegisterView(generics.CreateAPIView):
@@ -33,32 +34,26 @@ class MovieViewSet(viewsets.ModelViewSet):
 
 
 class ShowtimeViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet для перегляду та управління сеансами.
-    Підтримує фільтрацію за параметром `?active=true` або `?movie_id=X`.
-    """
-
-    queryset = Showtime.objects.select_related("movie").all()
+    queryset = Showtime.objects.select_related("movie", "hall").all()
     serializer_class = ShowtimeSerializer
 
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [permissions.IsAdminUser()]
-        return [permissions.AllowAny()]
+    @action(detail=True, methods=["get"], url_path="free-seats")
+    def free_seats(self, request, pk=None):
+        showtime = self.get_object()
+        
+        if showtime.is_expired:
+            return Response(
+                {"detail": "Сеанс вже минув."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        movie_id = self.request.query_params.get("movie")
-        is_active = self.request.query_params.get("active")
+        free_seats = showtime.get_free_seats()
 
-        if movie_id:
-            queryset = queryset.filter(movie_id=movie_id)
-
-
-        if is_active and is_active.lower() == "true":
-            queryset = queryset.filter(end_time__gt=timezone.now())
-
-        return queryset
+        return Response({
+            "showtime_id": showtime.id,
+            "free_seats_count": len(free_seats),
+            "free_seats": free_seats
+        }, status=status.HTTP_200_OK)
 
 
 class MyTicketsListView(generics.ListAPIView):

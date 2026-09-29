@@ -92,6 +92,35 @@ class Showtime(models.Model):
     def is_active(self) -> bool:
         now = timezone.now()
         return self.start_time <= now < self.end_time
+    
+    @property
+    def total_seats(self) -> int:
+        """Загальна кількість місць у залі."""
+        return self.hall.rows * self.hall.seats_per_row
+
+    @property
+    def booked_seats_count(self) -> int:
+        """Кількість уже заброньованих місць."""
+        return self.bookings.count()
+
+    @property
+    def free_seats_count(self) -> int:
+        """Кількість доступних (вільних) місць."""
+        return self.total_seats - self.booked_seats_count
+
+    def get_free_seats(self):
+        """Повертає список доступних місць у форматі [{'row': 1, 'place': 1}, ...]"""
+        occupied_seats = set(
+            self.bookings.values_list("row", "place")
+        )
+
+        free_seats = []
+        for r in range(1, self.hall.rows + 1):
+            for p in range(1, self.hall.seats_per_row + 1):
+                if (r, p) not in occupied_seats:
+                    free_seats.append({"row": r, "place": p})
+
+        return free_seats
 
     def __str__(self):
         return f"{self.movie.title} | {self.hall.name} ({self.start_time.strftime('%d.%m %H:%M')})"

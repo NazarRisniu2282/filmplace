@@ -66,6 +66,10 @@ class ShowtimeSerializer(serializers.ModelSerializer):
     )
     is_expired = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
+    
+    total_seats = serializers.ReadOnlyField()
+    booked_seats_count = serializers.ReadOnlyField()
+    free_seats_count = serializers.ReadOnlyField()
 
     class Meta:
         model = Showtime
@@ -80,6 +84,9 @@ class ShowtimeSerializer(serializers.ModelSerializer):
             "price",
             "is_expired",
             "is_active",
+            "total_seats",
+            "booked_seats_count",
+            "free_seats_count",
         ]
 
 
