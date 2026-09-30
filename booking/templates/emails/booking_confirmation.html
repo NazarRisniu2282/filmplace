@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .header { background-color: #1a1a2e; color: #fff; padding: 25px; text-align: center; }
+        .header h2 { margin: 0; font-size: 22px; }
+        .content { padding: 30px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .info-table td { padding: 10px 0; border-bottom: 1px solid #eee; }
+        .info-table td:first-child { font-weight: bold; color: #555; width: 35%; }
+        .seats-box { background-color: #f8f9fa; border-left: 4px solid #e50914; padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 25px; }
+        .qr-section { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc; }
+        .footer { background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 13px; color: #888; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🎬 Нове бронювання квитків!</h2>
+        </div>
+        <div class="content">
+            <table class="info-table">
+                <tr><td>🍿 Фільм:</td><td><strong>{{ movie_title }}</strong></td></tr>
+                <tr><td>👤 Клієнт:</td><td>{{ user_name }}</td></tr>
+                <tr><td>📞 Телефон:</td><td>{{ user_phone }}</td></tr>
+                <tr><td>📅 Сеанс:</td><td>{{ showtime_str }}</td></tr>
+                <tr><td>🏠 Зала:</td><td>{{ hall }}</td></tr>
+                <tr><td>🎟️ Кількість:</td><td>{{ bookings_count }}</td></tr>
+            </table>
+
+            <div class="seats-box">
+                <strong>📍 Заброньовані місця:</strong><br>
+                {% for seat in seats %}
+                    • Ряд {{ seat.row }}, Місце {{ seat.place }}<br>
+                {% endfor %}
+            </div>
+
+            <div class="qr-section">
+                <p style="margin-bottom: 10px; font-weight: bold;">Ваш квиток (покажіть при вході):</p>
+                <img src="cid:booking_qr_code" alt="QR Code" width="180" height="180" />
+            </div>
+        </div>
+        <div class="footer">
+            Дякуємо, що обираете наш кінотеатр!
+        </div>
+    </div>
+</body>
+</html>
