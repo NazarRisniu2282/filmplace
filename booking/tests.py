@@ -1,56 +1,73 @@
 from datetime import timedelta
 from unittest.mock import patch
+from django.test import TestCase, override_settings
+from .tasks import send_email_task
+
+from django.contrib.auth import get_user_model
 from django.core import mail
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
-from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIRequestFactory, APITestCase
 
 from .models import Movie, Showtime, Booking, Hall
+from .serializer import BookingCreateSerializer
 from .telegram import send_telegram_notification
 from .services import send_booking_confirmation_email
 
 User = get_user_model()
 
 
+class CeleryTaskUnitTests(TestCase):
+    """Перевірка асинхронного виклику таски (без виконання самої логики)."""
+
+    @patch("booking.tasks.send_email_task.delay")
+    def test_send_email_task_called_async(self, mock_send_email):
+        # Викликаємо таску через .delay()
+        send_email_task.delay("test@example.com", "Тестове повідомлення")
+
+        # Перевіряємо, що метод .delay() був викликаний один раз з правильними аргументами
+        mock_send_email.assert_called_once_with(
+            "test@example.com", "Тестове повідомлення"
+        )
+
+
+class CeleryTaskExecutionTests(TestCase):
+    """Перевірка реального виконання таски у синхронному режимі для тестів."""
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_send_email_task_execution(self):
+        # При CELERY_TASK_ALWAYS_EAGER=True таска виконується одразу в тілі тесту
+        result = send_email_task.delay("test@example.com", "Привіт з тесту!")
+
+        # Перевіряємо статус та результат повернення
+        self.assertTrue(result.successful())
+        self.assertEqual(result.result, True)
+
+
 class NotificationServicesTestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser",
-            email="testuser@example.com",
-            password="Password123!"
+            username="testuser", email="testuser@example.com", password="Password123!"
         )
         self.movie = Movie.objects.create(
-            title="Інтерстеллар",
-            duration=169,
-            rate="12+",
-            rating=8.6
+            title="Інтерстеллар", duration=169, rate="12+", rating=8.6
         )
         # 1. Створюємо зал
-        self.hall = Hall.objects.create(
-            name="Red Hall",
-            rows=10,
-            seats_per_row=15
-        )
+        self.hall = Hall.objects.create(name="Red Hall", rows=10, seats_per_row=15)
         # 2. Передаємо hall у Showtime
         self.showtime = Showtime.objects.create(
             movie=self.movie,
             hall=self.hall,
             start_time=timezone.now() + timedelta(days=1),
-            price=150.00
+            price=150.00,
         )
         # Створення двох заброньованих квитків
         self.booking1 = Booking.objects.create(
-            user=self.user,
-            showtime=self.showtime,
-            row=1,
-            place=5
+            user=self.user, showtime=self.showtime, row=1, place=5
         )
         self.booking2 = Booking.objects.create(
-            user=self.user,
-            showtime=self.showtime,
-            row=1,
-            place=6
+            user=self.user, showtime=self.showtime, row=1, place=6
         )
         self.bookings = [self.booking1, self.booking2]
 
@@ -94,8 +111,10 @@ class NotificationServicesTestCase(APITestCase):
 
             # Перевіряємо параметри, з якими був викликаний requests.post
             args, kwargs = mock_post.call_args
-            self.assertEqual(args[0], "https://api.telegram.org/bottest_token/sendMessage")
-            
+            self.assertEqual(
+                args[0], "https://api.telegram.org/bottest_token/sendMessage"
+            )
+
             payload = kwargs["json"]
             self.assertEqual(payload["chat_id"], "123456")
             self.assertIn("Інтерстеллар", payload["text"])
@@ -115,31 +134,21 @@ class CreateBookingAPIIntegrationTestCase(APITestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            username="buyer",
-            email="buyer@example.com",
-            password="Password123!"
+            username="buyer", email="buyer@example.com", password="Password123!"
         )
         self.client.force_authenticate(user=self.user)
 
         self.movie = Movie.objects.create(
-            title="Матриця",
-            description="Sci-Fi",
-            duration=136,
-            rate="16+",
-            rating=8.7
+            title="Матриця", description="Sci-Fi", duration=136, rate="16+", rating=8.7
         )
         # 1. Створюємо зал
-        self.hall = Hall.objects.create(
-            name="IMAX",
-            rows=12,
-            seats_per_row=20
-        )
+        self.hall = Hall.objects.create(name="IMAX", rows=12, seats_per_row=20)
         # 2. Передаємо hall у Showtime
         self.showtime = Showtime.objects.create(
             movie=self.movie,
             hall=self.hall,
             start_time=timezone.now() + timedelta(days=1),
-            price=200.00
+            price=200.00,
         )
 
     @patch("booking.views.send_telegram_notification")
@@ -148,10 +157,7 @@ class CreateBookingAPIIntegrationTestCase(APITestCase):
         url = "/buy-tickets/"
         data = {
             "showtime": self.showtime.id,
-            "seats": [
-                {"row": 2, "place": 10},
-                {"row": 2, "place": 11}
-            ]
+            "seats": [{"row": 2, "place": 10}, {"row": 2, "place": 11}],
         }
 
         response = self.client.post(url, data, format="json")
@@ -166,3 +172,57 @@ class CreateBookingAPIIntegrationTestCase(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["buyer@example.com"])
         self.assertIn("Матриця", mail.outbox[0].subject)
+
+    def test_non_admin_cannot_update_showtime(self):
+        response = self.client.patch(
+            f"/showtimes/{self.showtime.id}/",
+            {"price": "250.00"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.showtime.refresh_from_db()
+        self.assertEqual(str(self.showtime.price), "200.00")
+
+    def test_registration_rejects_weak_password(self):
+        response = self.client.post(
+            "/register/",
+            {
+                "username": "weak-password-user",
+                "email": "weak@example.com",
+                "password": "123",
+                "password_confirm": "123",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(username="weak-password-user").exists())
+
+    def test_booking_rechecks_seats_before_atomic_insert(self):
+        request = APIRequestFactory().post("/buy-tickets/")
+        request.user = self.user
+        serializer = BookingCreateSerializer(
+            data={
+                "showtime": self.showtime.id,
+                "seats": [{"row": 3, "place": 7}],
+            },
+            context={"request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        Booking.objects.create(
+            user=self.user,
+            showtime=self.showtime,
+            row=3,
+            place=7,
+        )
+
+        with self.assertRaises(ValidationError):
+            serializer.save()
+
+        self.assertEqual(
+            Booking.objects.filter(showtime=self.showtime, row=3, place=7).count(),
+            1,
+        )

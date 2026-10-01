@@ -1,6 +1,10 @@
 from django.contrib.auth import get_user_model
-from django.utils import timezone
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from rest_framework import serializers
+from django.utils import timezone
+from datetime import timedelta
 
 from .models import Booking, Movie, Showtime, Hall
 
@@ -11,6 +15,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     """
     Реєстрація користувача з перевіркою збігу паролів та хешуванням.
     """
+
     password = serializers.CharField(
         write_only=True, required=True, style={"input_type": "password"}
     )
@@ -33,9 +38,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
-            raise serializers.ValidationError(
-                {"password": "Паролі не співпадають!"}
-            )
+            raise serializers.ValidationError({"password": "Паролі не співпадають!"})
+
+        candidate_user = User(
+            username=attrs.get("username", ""),
+            email=attrs.get("email", ""),
+            first_name=attrs.get("first_name", ""),
+            last_name=attrs.get("last_name", ""),
+        )
+        try:
+            validate_password(attrs["password"], user=candidate_user)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({"password": error.messages}) from error
+
         return attrs
 
     def create(self, validated_data):
@@ -66,7 +81,7 @@ class ShowtimeSerializer(serializers.ModelSerializer):
     )
     is_expired = serializers.ReadOnlyField()
     is_active = serializers.ReadOnlyField()
-    
+
     total_seats = serializers.ReadOnlyField()
     booked_seats_count = serializers.ReadOnlyField()
     free_seats_count = serializers.ReadOnlyField()
@@ -94,6 +109,7 @@ class BookingSerializer(serializers.ModelSerializer):
     """
     Серіалайзер для відображення детальної інформації про квиток.
     """
+
     showtime = ShowtimeSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
     is_expired = serializers.ReadOnlyField()
@@ -145,7 +161,7 @@ class BookingCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {
                     "seats": f"У залі '{hall.name}' немає таких місць: {', '.join(invalid_seats)}. "
-                             f"Максимум рядів: {hall.rows}, місць у ряду: {hall.seats_per_row}."
+                    f"Максимум рядів: {hall.rows}, місць у ряду: {hall.seats_per_row}."
                 }
             )
 
@@ -177,6 +193,7 @@ class BookingCreateSerializer(serializers.Serializer):
         user = self.context["request"].user
         showtime = validated_data["showtime"]
         seats = validated_data["seats"]
+        expires_time = timezone.now() + timedelta(minutes=10)
 
         bookings_to_create = [
             Booking(
@@ -184,8 +201,47 @@ class BookingCreateSerializer(serializers.Serializer):
                 showtime=showtime,
                 row=seat["row"],
                 place=seat["place"],
+                expires_at=expires_time,  
             )
             for seat in seats
         ]
 
-        return Booking.objects.bulk_create(bookings_to_create)
+        try:
+            with transaction.atomic():
+                locked_showtime = Showtime.objects.select_for_update().get(
+                    pk=showtime.pk
+                )
+                occupied_seats = set(
+                    Booking.objects.filter(showtime=locked_showtime).values_list(
+                        "row", "place"
+                    )
+                )
+                already_booked = [
+                    f"Ряд {seat['row']}, Місце {seat['place']}"
+                    for seat in seats
+                    if (seat["row"], seat["place"]) in occupied_seats
+                ]
+                if already_booked:
+                    raise serializers.ValidationError(
+                        {
+                            "seats": f"Наступні місця вже зайняті: {', '.join(already_booked)}"
+                        }
+                    )
+
+                return Booking.objects.bulk_create(bookings_to_create)
+        except IntegrityError as error:
+            occupied_seats = set(
+                Booking.objects.filter(showtime=showtime).values_list("row", "place")
+            )
+            already_booked = [
+                f"Ряд {seat['row']}, Місце {seat['place']}"
+                for seat in seats
+                if (seat["row"], seat["place"]) in occupied_seats
+            ]
+            if already_booked:
+                raise serializers.ValidationError(
+                    {
+                        "seats": f"Наступні місця вже зайняті: {', '.join(already_booked)}"
+                    }
+                ) from error
+            raise

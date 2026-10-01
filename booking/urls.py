@@ -11,7 +11,8 @@ from .views import (
     MyTicketsListView,
     RegisterView,
     ShowtimeViewSet,
-    HallViewSet 
+    HallViewSet,
+    validate_qr_token
 )
 
 router = DefaultRouter()
@@ -28,4 +29,6 @@ urlpatterns = [
     
     path("buy-tickets/", CreateBookingView.as_view(), name="buy-tickets"),
     path("my-tickets/", MyTicketsListView.as_view(), name="my-tickets"),
+
+    path('validate/', validate_qr_token, name='validate-qr-token'),
 ]

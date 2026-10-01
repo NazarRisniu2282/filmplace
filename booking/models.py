@@ -136,6 +136,9 @@ class Booking(models.Model):
     row = models.PositiveIntegerField()
     place = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(verbose_name="Дійсне до")
+    is_used = models.BooleanField( default=False, verbose_name="used")
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name="Час сканування")
 
     class Meta:
         ordering = ["-created_at"]
@@ -148,9 +151,15 @@ class Booking(models.Model):
             )
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=10)
+        super().save(*args, **kwargs)
+
     @property
     def is_expired(self) -> bool:
-        return self.showtime.is_expired
+        return self.status == self.BookingStatus.PENDING and timezone.now() > self.expires_at
+    
 
     @property
     def status(self) -> str:
