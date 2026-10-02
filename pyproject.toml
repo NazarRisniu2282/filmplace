@@ -13,3 +13,8 @@ dependencies = [
     "redis>=8.0",
     "requests>=2.34",
 ]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.4.1",
+]
