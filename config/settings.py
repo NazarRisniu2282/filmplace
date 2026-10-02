@@ -2,7 +2,6 @@ import os
 from datetime import timedelta
 from pathlib import Path
 import environ
-from celery import Celery
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -11,9 +10,9 @@ env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 
-SECRET_KEY = env("SECRET_KEY")
-
-DEBUG = env("DEBUG")
+# --- ЗМІНИ ТУТ: додано default значення для CI/CD та тестів ---
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-ci-test-key-12345")
+DEBUG = env("DEBUG", default=True)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "filmplace-production.up.railway.app"])
 
@@ -106,8 +105,9 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID")
+# --- ЗМІНИ ТУТ: додано default значення ---
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="dummy_bot_token")
+TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID", default="dummy_chat_id")
 
 MAILERS = {
     "default": {
@@ -115,14 +115,14 @@ MAILERS = {
         "OPTIONS": {
             "host": "smtp.gmail.com",
             "port": 587,
-            "username": env("EMAIL_HOST_USER"),
-            "password": env("EMAIL_HOST_PASSWORD"),
+            "username": env("EMAIL_HOST_USER", default="test@example.com"),
+            "password": env("EMAIL_HOST_PASSWORD", default="dummy_password"),
             "use_tls": True,
         },
     }
 }
 
-DEFAULT_FROM_EMAIL = env("EMAIL_HOST_USER")
+DEFAULT_FROM_EMAIL = env("EMAIL_HOST_USER", default="test@example.com")
 
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
