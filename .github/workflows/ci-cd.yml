@@ -1,4 +1,4 @@
-name: Django REST Framework CI/CD (uv + SQLite)
+name: Django REST Framework CI/CD (uv + Railway)
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
 
       # Встановлюємо uv
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           version: "latest"
@@ -28,24 +28,24 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      # Встановлюємо залежності з pyproject.toml / uv.lock
+      # Встановлюємо залежності
       - name: Install Dependencies
         run: uv sync --all-extras --dev
 
-      # Перевірка линтером Flake8 через uv run
+      # Перевірка лінтером Flake8
       - name: Run Linters (Flake8)
         run: |
           uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      # Запуск тестів Django (використовує SQLite за замовчуванням)
+      # Запуск тестів Django
       - name: Run Tests
         env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'django-insecure-test-key-for-ci-12345' }}
         run: |
           uv run python manage.py test
 
   # ----------------------------------------------------
-  # ЕТАП 2: CD (Автоматичний деплой на VPS)
+  # ЕТАП 2: CD (Автоматичний деплой на Railway)
   # ----------------------------------------------------
   deploy:
     needs: test
@@ -53,16 +53,10 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        uses: railwayapp/action-deploy@v1
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /path/to/your/project
-            git pull origin main
-            uv sync --frozen
-            uv run python manage.py migrate
-            uv run python manage.py collectstatic --noinput
-            sudo systemctl restart gunicorn
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
