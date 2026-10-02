@@ -1,0 +1,68 @@
+name: Django REST Framework CI/CD (uv + SQLite)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ----------------------------------------------------
+  # ЕТАП 1: CI (Тестування та перевірка коду)
+  # ----------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Встановлюємо uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          version: "latest"
+
+      # Налаштовуємо Python через uv
+      - name: Set up Python
+        run: uv python install 3.11
+
+      # Встановлюємо залежності з pyproject.toml / uv.lock
+      - name: Install Dependencies
+        run: uv sync --all-extras --dev
+
+      # Перевірка линтером Flake8 через uv run
+      - name: Run Linters (Flake8)
+        run: |
+          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      # Запуск тестів Django (використовує SQLite за замовчуванням)
+      - name: Run Tests
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          uv run python manage.py test
+
+  # ----------------------------------------------------
+  # ЕТАП 2: CD (Автоматичний деплой на VPS)
+  # ----------------------------------------------------
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /path/to/your/project
+            git pull origin main
+            uv sync --frozen
+            uv run python manage.py migrate
+            uv run python manage.py collectstatic --noinput
+            sudo systemctl restart gunicorn
