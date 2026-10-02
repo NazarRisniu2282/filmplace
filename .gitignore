@@ -5,3 +5,4 @@ db.sqlite3
 .env
 .vscode/
 .idea/
+docker-desktop-x86_64.rpm

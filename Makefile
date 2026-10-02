@@ -11,7 +11,7 @@ worker:
 # Запуск Celery з автоперезавантаженням при зміні коду (потрібно: pip install watchfiles)
 worker-watch:
 	celery -A config worker --loglevel=info --watch
-
+i&!3c%e&de6nm6b*dv*9(nf1^9drz!9o_@0dd)*lxlr%nip%*'
 # Перевірка Redis
 redis:
 	redis-cli ping
