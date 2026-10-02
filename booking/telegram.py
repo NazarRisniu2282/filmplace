@@ -1,6 +1,7 @@
 import logging
 import requests
 from django.conf import settings
+import html
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +28,22 @@ def send_telegram_notification(bookings):
 
     seats_info = "\n".join([f"• Ряд {b.row}, Місце {b.place}" for b in bookings])
 
+    clean_movie_title = html.escape(str(movie_title))
+    clean_name = html.escape(str(user_name))
+    clean_phone = html.escape(str(user_phone or "Не вказано"))
+    clean_showtime = html.escape(str(showtime_str))
+    clean_hall = html.escape(str(hall))
+    clean_seats_info = html.escape(str(seats_info))
+
     message = (
         f"🎬 <b>Нове бронювання квитків!</b>\n\n"
-        f"🍿 <b>Фільм:</b> {movie_title}\n"
-        f"👤 <b>Клієнт:</b> {user_name}\n"
-        f"📞 <b>Телефон:</b> {user_phone}\n"
-        f"📅 <b>Сеанс:</b> {showtime_str}\n"
-        f"🏠 <b>Зала:</b> {hall}\n"
+        f"🍿 <b>Фільм:</b> {clean_movie_title}\n"
+        f"👤 <b>Клієнт:</b> {clean_name}\n"
+        f"📞 <b>Телефон:</b> {clean_phone}\n"
+        f"📅 <b>Сеанс:</b> {clean_showtime}\n"
+        f"🏠 <b>Зала:</b> {clean_hall}\n"
         f"🎟️ <b>Кількість:</b> {len(bookings)}\n\n"
-        f"📍 <b>Заброньовані місця:</b>\n{seats_info}"
+        f"📍 <b>Заброньовані місця:</b>\n{clean_seats_info}"
     )
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"

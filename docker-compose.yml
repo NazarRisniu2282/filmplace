@@ -6,8 +6,3 @@ services:
       - "8000:8000"
     volumes:
       - .:/filmplace:z
-      # Зберігаємо файл SQLite3 між перезапусками
-      - sqlite_data:/filmplace/sqlite
-
-volumes:
-  sqlite_data:

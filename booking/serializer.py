@@ -145,13 +145,11 @@ class BookingCreateSerializer(serializers.Serializer):
         seats = attrs["seats"]
         hall = showtime.hall
 
-        # 1. Перевірка: чи сеанс не закінчився
         if showtime.is_expired:
             raise serializers.ValidationError(
                 {"showtime": "Неможливо забронювати квиток на сеанс, який вже минув!"}
             )
 
-        # 2. Перевірка: чи не виходять місця за межі розмірів залу
         invalid_seats = []
         for s in seats:
             if s["row"] > hall.rows or s["place"] > hall.seats_per_row:
@@ -165,14 +163,12 @@ class BookingCreateSerializer(serializers.Serializer):
                 }
             )
 
-        # 3. Перевірка: чи немає дублікатів у запиті
         seat_tuples = [(s["row"], s["place"]) for s in seats]
         if len(seat_tuples) != len(set(seat_tuples)):
             raise serializers.ValidationError(
                 {"seats": "У запиті вказано дубльовані місця!"}
             )
 
-        # 4. Перевірка: чи місця вже заброньовані в БД
         occupied_seats = set(
             Booking.objects.filter(showtime=showtime).values_list("row", "place")
         )

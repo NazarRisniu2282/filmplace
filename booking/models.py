@@ -42,7 +42,7 @@ class Movie(models.Model):
 
 
 class Hall(models.Model):
-    name = models.CharField(max_length=50, verbose_name="Назва залу")  # Наприклад: "Зал 1", "IMAX"
+    name = models.CharField(max_length=50, verbose_name="Назва залу")
     rows = models.PositiveIntegerField(verbose_name="Кількість рядів")
     seats_per_row = models.PositiveIntegerField(verbose_name="Місць у ряду")
 

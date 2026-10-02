@@ -7,5 +7,4 @@ app = Celery('filmplace')
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-# Автоматично знаходить tasks.py у всіх додатках (зокрема у booking/tasks.py)
 app.autodiscover_tasks()

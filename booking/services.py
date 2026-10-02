@@ -32,30 +32,18 @@ def send_booking_confirmation_email(bookings):
 
     subject = f"Підтвердження бронювання — {movie_title}"
 
-    # --------------------------------------------------------------------------
-    # 1. Генерація захищеного токена для QR-коду
-    # --------------------------------------------------------------------------
     booking_ids = [b.id for b in bookings]
     
-    # Створюємо payload з ідентифікаторами
     payload = {
         "showtime_id": showtime.id,
         "booking_ids": booking_ids
     }
 
-    # Підписуємо дані через SECRET_KEY вашого проекту
     signer = TimestampSigner()
     signed_token = signer.sign_object(payload)
 
-    # Варіант А: Зашифрувати чистий токен
     qr_data = signed_token
     
-    # Варіант Б: Зашифрувати готовий URL для сканера контролера
-    # qr_data = f"https://yourdomain.com/api/v1/tickets/validate/?token={signed_token}"
-
-    # --------------------------------------------------------------------------
-    # 2. Генерація QR-коду в пам'яті
-    # --------------------------------------------------------------------------
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -70,7 +58,6 @@ def send_booking_confirmation_email(bookings):
     img.save(buffer, format='PNG')
     qr_bytes = buffer.getvalue()
 
-    # 3. Рендеринг HTML через шаблон
     context = {
         'movie_title': movie_title,
         'user_name': user_name,
@@ -84,7 +71,6 @@ def send_booking_confirmation_email(bookings):
     html_content = render_to_string('emails/booking_confirmation.html', context)
     text_content = strip_tags(html_content)
 
-    # 4. Створення та відправка Email
     msg = EmailMultiAlternatives(
         subject=subject,
         body=text_content,
@@ -93,7 +79,6 @@ def send_booking_confirmation_email(bookings):
     )
     msg.attach_alternative(html_content, "text/html")
 
-    # 5. Прикріплення QR-коду як Inline зображення
     mime_image = MIMEImage(qr_bytes)
     mime_image.add_header('Content-ID', '<booking_qr_code>')
     mime_image.add_header('Content-Disposition', 'inline', filename='qr_code.png')

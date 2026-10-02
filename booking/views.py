@@ -122,7 +122,7 @@ class HallViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])  # Запит може робити тільки авторизований контролер
+@permission_classes([IsAdminUser])
 def validate_qr_token(request):
     token = request.data.get('token')
     
@@ -132,13 +132,11 @@ def validate_qr_token(request):
     signer = TimestampSigner()
 
     try:
-        # 1. Розшифровуємо токен
         data = signer.unsign_object(token, max_age=86400 * 30)
         
         booking_ids = data.get("booking_ids")
         showtime_id = data.get("showtime_id")
 
-        # 2. Атомарна перевірка та блокування рядка в базі
         with transaction.atomic():
             bookings = list(
                 Booking.objects.select_for_update()
@@ -152,7 +150,6 @@ def validate_qr_token(request):
                     "message": "Квиток не знайдено в системі"
                 }, status=404)
 
-            # 3. ПЕРЕВІРКА: Чи був квиток вже використаний?
             already_used = [b for b in bookings if b.is_used]
             if already_used:
                 first_used = already_used[0]
@@ -162,12 +159,11 @@ def validate_qr_token(request):
                     "message": f"Квиток ВЖЕ ВИКОРИСТАНО о {formatted_time}!"
                 }, status=400)
 
-            # 4. ПОГАШЕННЯ: Змінюємо статус на is_used = True і зберігаємо
             now = timezone.now()
             for b in bookings:
                 b.is_used = True
                 b.used_at = now
-                b.save(update_fields=["is_used", "used_at"]) # ЗБЕРІГАЄМО В БД!
+                b.save(update_fields=["is_used", "used_at"])
 
             first_b = bookings[0]
             return Response({
@@ -185,7 +181,6 @@ def validate_qr_token(request):
 
 
 def my_view(request):
-    # Завдання передається в Celery і виконується у фоні, не затримуючи відповідь користувачу
     send_email_task.delay('user@example.com', 'Ласкаво просимо!')
     
     return JsonResponse({'status': 'Завдання відправлено в обробку!'})
