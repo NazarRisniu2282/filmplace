@@ -307,6 +307,7 @@ dependencies = [
     { name = "django-environ" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
+    { name = "gunicorn" },
     { name = "pillow" },
     { name = "qrcode" },
     { name = "redis" },
@@ -325,6 +326,7 @@ requires-dist = [
     { name = "django-environ", specifier = ">=0.14" },
     { name = "djangorestframework", specifier = ">=3.18" },
     { name = "djangorestframework-simplejwt", specifier = ">=5.5" },
+    { name = "gunicorn", specifier = ">=26.2.0" },
     { name = "pillow", specifier = ">=12.0" },
     { name = "qrcode", specifier = ">=8.0" },
     { name = "redis", specifier = ">=8.0" },
@@ -346,6 +348,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c2/94/85870fc02dfe4ab0885c440e7e41f6a986b10e43eca6717e90f8ce1215cc/flake8-7.4.1.tar.gz", hash = "sha256:84ea5afcaf344487b0ea5baaebb8100f4cfaebc01f755998f75876664029f587", size = 47897, upload-time = "2026-09-23T12:21:59.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/d4/8e58a7221419bf8cb194f362ab26abf504c983135975e4c785fac0852886/flake8-7.4.1-py2.py3-none-any.whl", hash = "sha256:78480274a6d7289d9cb8eafeda241fac57d4ea687d26e32dfdca37b72cdeddad", size = 57449, upload-time = "2026-09-23T12:21:58.085Z" },
+]
+
+[[package]]
+name = "gunicorn"
+version = "26.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/8a/e4ef6ee11701b6cd64702848415ffb69eeff85cb388a3c6c7fe86f22f3f8/gunicorn-26.2.0.tar.gz", hash = "sha256:62b864895d9ebff0b2f9867ba04fe811c93121596540830c9c916d0769668447", size = 787921, upload-time = "2026-08-24T15:05:59.3Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/85/7522a52e5e2f42faf1a129113ab63e548c42e103e9af395b7bfe65e403e2/gunicorn-26.2.0-py3-none-any.whl", hash = "sha256:bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3", size = 228389, upload-time = "2026-08-24T15:05:57.67Z" },
 ]
 
 [[package]]

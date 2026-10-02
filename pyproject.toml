@@ -8,6 +8,7 @@ dependencies = [
     "django-environ>=0.14",
     "djangorestframework>=3.18",
     "djangorestframework-simplejwt>=5.5",
+    "gunicorn>=26.2.0",
     "pillow>=12.0",
     "qrcode>=8.0",
     "redis>=8.0",
