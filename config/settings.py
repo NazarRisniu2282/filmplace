@@ -14,7 +14,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-ci-test-key-12345")
 DEBUG = env("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "filmplace-production.up.railway.app"])
+ALLOWED_HOSTS = ['*']
 
 
 INSTALLED_APPS = [
