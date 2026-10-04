@@ -13,6 +13,7 @@ dependencies = [
     "qrcode>=8.0",
     "redis>=8.0",
     "requests>=2.34",
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]
