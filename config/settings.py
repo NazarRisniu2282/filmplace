@@ -13,10 +13,12 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=["filmplace-production.up.railway.app", "localhost", "127.0.0.1", "[::1]"],
-)
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".railway.app", 
+    "filmplace-production.up.railway.app",
+]
 
 CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS", default=["https://filmplace-production.up.railway.app"]
