@@ -1,72 +1,45 @@
+# Бази даних
+*.sqlite3
+*.sqlite
+*.db
 
-.git
-.gitignore
-.gitattributes
-
-
-.codeclimate.yml
-.travis.yml
-.taskcluster.yml
-
-docker-compose.yml
-Dockerfile
-.docker
-.dockerignore
-
-/__pycache__/
-/*.py[cod]
-
-# C extensions
-*.so
-
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
-
-*.manifest
-*.spec
-
-pip-log.txt
-pip-delete-this-directory.txt
-
-htmlcov/
-.tox/
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-
-*.mo
-*.pot
-
-*.log
-
-docs/_build/
-
-target/
-
-.env
+# Віртуальні середовища та залежності
 .venv/
 venv/
+ENV/
+env/
 
-.idea
+# Git та контроль версій
+.git/
+.gitignore
 
-.ropeproject
-/.ropeproject
+# Кеш Python та compiled файли
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
-/*.swp
+# Секрети та локальні налаштування
+.env
+*.env
+.env.local
 
+# Логи та тимчасові файли
+*.log
+*.tmp
+tmp/
 
+# Docker та IDE
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+.idea/
 .vscode/
+*.swp
+*.swo
+
+# Медіа та статика (якщо вони збираються/завантажуються окремо)
+media/
+staticfiles/

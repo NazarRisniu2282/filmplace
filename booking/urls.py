@@ -7,12 +7,12 @@ from rest_framework_simplejwt.views import (
 
 from .views import (
     CreateBookingView,
+    HallViewSet,
     MovieViewSet,
     MyTicketsListView,
     RegisterView,
     ShowtimeViewSet,
-    HallViewSet,
-    validate_qr_token
+    validate_qr_token,
 )
 
 router = DefaultRouter()
@@ -22,13 +22,10 @@ router.register(r"halls", HallViewSet, basename="hall")
 
 urlpatterns = [
     path("", include(router.urls)),
-    
     path("register/", RegisterView.as_view(), name="register"),
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    
     path("buy-tickets/", CreateBookingView.as_view(), name="buy-tickets"),
     path("my-tickets/", MyTicketsListView.as_view(), name="my-tickets"),
-
-    path('validate/', validate_qr_token, name='validate-qr-token'),
+    path("validate/", validate_qr_token, name="validate-qr-token"),
 ]

@@ -1,7 +1,8 @@
+import html
 import logging
+
 import requests
 from django.conf import settings
-import html
 
 logger = logging.getLogger(__name__)
 

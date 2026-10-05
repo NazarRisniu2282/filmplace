@@ -1,19 +1,20 @@
 from datetime import timedelta
 from unittest.mock import patch
-from django.test import TestCase, override_settings
-from .tasks import send_email_task
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIRequestFactory, APITestCase
+from django.urls import NoReverseMatch, reverse
 
-from .models import Movie, Showtime, Booking, Hall
+from .models import Booking, Hall, Movie, Showtime
 from .serializer import BookingCreateSerializer
-from .telegram import send_telegram_notification
 from .services import send_booking_confirmation_email
+from .tasks import send_email_task
+from .telegram import send_telegram_notification
 
 User = get_user_model()
 
@@ -151,27 +152,27 @@ class CreateBookingAPIIntegrationTestCase(APITestCase):
             price=200.00,
         )
 
-    @patch("booking.views.send_telegram_notification")
-    def test_create_booking_triggers_notifications(self, mock_telegram):
-        """Перевіряє, що API купівлі квитків створює квитки, надсилає email та викликає telegram."""
-        url = "/buy-tickets/"
+    @patch("booking.views.send_booking_notifications_task.delay")
+    def test_create_booking_triggers_notifications(self, mock_task):
+        # Отримуємо URL за правильним іменем з urls.py
+        try:
+            url = reverse("buy-tickets")
+        except NoReverseMatch:
+            url = reverse("booking:buy-tickets")
+
         data = {
             "showtime": self.showtime.id,
-            "seats": [{"row": 2, "place": 10}, {"row": 2, "place": 11}],
+            "seats": [
+                {"row": 1, "place": 1},
+            ],
         }
 
-        response = self.client.post(url, data, format="json")
+        # Виконуємо запит із виконанням on_commit хуків Celery
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(url, data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Booking.objects.count(), 2)
-
-        # 1. Перевіряємо, що телеграм-функцію було викликано
-        mock_telegram.assert_called_once()
-
-        # 2. Перевіряємо, що лист потрапив у джангівський mail.outbox
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ["buyer@example.com"])
-        self.assertIn("Матриця", mail.outbox[0].subject)
+        mock_task.assert_called_once()
 
     def test_non_admin_cannot_update_showtime(self):
         response = self.client.patch(

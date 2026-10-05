@@ -5,7 +5,6 @@ from django.utils import timezone
 
 from booking.models import Hall, Movie, Showtime
 
-
 HALLS = [
     {"name": "Hall 1", "rows": 10, "seats_per_row": 12},
     {"name": "Hall 2", "rows": 8, "seats_per_row": 10},

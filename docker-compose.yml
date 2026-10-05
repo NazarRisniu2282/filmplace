@@ -1,8 +1,73 @@
+version: '3.8'
+
 services:
+  # 1. Основний веб-сервіс Django
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    ports:
-      - "8000:8000"
+    container_name: filmplace_web
+    restart: always
+    # Для локальної розробки з автоперезавантаженням можна розкоментувати:
+    # command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/filmplace:z
+      - sqlite_data:/filmplace/db_data
+    ports:
+      - "8000:8000"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # 2. Брокер повідомлень та кеш Redis
+  redis:
+    image: redis:7-alpine
+    container_name: filmplace_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Воркер Celery для асинхронних задач (пошта, сповіщення)
+  celery_worker:
+    build: .
+    container_name: filmplace_celery_worker
+    restart: always
+    command: celery -A filmplace worker -l info
+    volumes:
+      - .:/filmplace:z
+      - sqlite_data:/filmplace/db_data
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # 4. Планувальник періодичних задач Celery Beat
+  celery_beat:
+    build: .
+    container_name: filmplace_celery_beat
+    restart: always
+    command: celery -A filmplace beat -l info
+    volumes:
+      - .:/filmplace:z
+      - sqlite_data:/filmplace/db_data
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:

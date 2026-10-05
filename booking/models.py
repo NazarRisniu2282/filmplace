@@ -1,4 +1,5 @@
 from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -11,9 +12,7 @@ class CustomUser(AbstractUser):
     phone_number = models.CharField(
         max_length=20, blank=True, verbose_name="Номер телефону"
     )
-    birthdate = models.DateField(
-        null=True, blank=True, verbose_name="Дата народження"
-    )
+    birthdate = models.DateField(null=True, blank=True, verbose_name="Дата народження")
 
     def __str__(self):
         full_name = f"{self.first_name} {self.last_name}".strip()
@@ -29,9 +28,7 @@ class Movie(models.Model):
 
     title = models.CharField(max_length=100)
     description = models.TextField(max_length=1000)
-    duration = models.PositiveIntegerField(
-        help_text="Тривалість у хвилинах"
-    )
+    duration = models.PositiveIntegerField(help_text="Тривалість у хвилинах")
     rate = models.CharField(max_length=3, choices=AgeRating.choices)
     rating = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(10.0)]
@@ -55,16 +52,12 @@ class Hall(models.Model):
 
 
 class Showtime(models.Model):
-    movie = models.ForeignKey(
-        Movie, on_delete=models.CASCADE, related_name="showtimes"
-    )
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name="showtimes")
     hall = models.ForeignKey(
         Hall, on_delete=models.CASCADE, related_name="showtimes", verbose_name="Зал"
     )
     start_time = models.DateTimeField(verbose_name="Початок сеансу")
-    end_time = models.DateTimeField(
-        verbose_name="Кінець сеансу", blank=True, null=True
-    )
+    end_time = models.DateTimeField(verbose_name="Кінець сеансу", blank=True, null=True)
     price = models.DecimalField(
         max_digits=8, decimal_places=2, verbose_name="Ціна квитка"
     )
@@ -79,7 +72,7 @@ class Showtime(models.Model):
             raise ValidationError("Час завершення має бути пізніше часу початку.")
 
     def save(self, *args, **kwargs):
-        if not self.end_time and self.movie and self.movie.duration:
+        if not self.end_time and self.movie_id:
             self.end_time = self.start_time + timedelta(minutes=self.movie.duration)
         self.full_clean()
         super().save(*args, **kwargs)
@@ -92,7 +85,7 @@ class Showtime(models.Model):
     def is_active(self) -> bool:
         now = timezone.now()
         return self.start_time <= now < self.end_time
-    
+
     @property
     def total_seats(self) -> int:
         """Загальна кількість місць у залі."""
@@ -100,7 +93,15 @@ class Showtime(models.Model):
 
     @property
     def booked_seats_count(self) -> int:
-        """Кількість уже заброньованих місць."""
+        """
+        Повертає анотоване значення, якщо воно є в об'єкті (після annotate),
+        інакше виконує запит .count().
+        """
+        if hasattr(self, "_booked_seats_count"):
+            return self._booked_seats_count
+        # Якщо в __dict__ є значення від annotate(booked_seats_count=...)
+        if "booked_seats_count" in self.__dict__:
+            return self.__dict__["booked_seats_count"]
         return self.bookings.count()
 
     @property
@@ -110,9 +111,7 @@ class Showtime(models.Model):
 
     def get_free_seats(self):
         """Повертає список доступних місць у форматі [{'row': 1, 'place': 1}, ...]"""
-        occupied_seats = set(
-            self.bookings.values_list("row", "place")
-        )
+        occupied_seats = set(self.bookings.values_list("row", "place"))
 
         free_seats = []
         for r in range(1, self.hall.rows + 1):
@@ -127,6 +126,11 @@ class Showtime(models.Model):
 
 
 class Booking(models.Model):
+    class BookingStatus(models.TextChoices):
+        UPCOMING = "Upcoming", "Майбутнє"
+        IN_PROGRESS = "In Progress", "В процесі"
+        EXPIRED = "Expired", "Завершено"
+
     showtime = models.ForeignKey(
         Showtime, on_delete=models.CASCADE, related_name="bookings"
     )
@@ -137,7 +141,7 @@ class Booking(models.Model):
     place = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(verbose_name="Дійсне до")
-    is_used = models.BooleanField( default=False, verbose_name="used")
+    is_used = models.BooleanField(default=False, verbose_name="used")
     used_at = models.DateTimeField(null=True, blank=True, verbose_name="Час сканування")
 
     class Meta:
@@ -158,8 +162,10 @@ class Booking(models.Model):
 
     @property
     def is_expired(self) -> bool:
-        return self.status == self.BookingStatus.PENDING and timezone.now() > self.expires_at
-    
+        return (
+            self.status == self.BookingStatus.EXPIRED
+            and timezone.now() > self.expires_at
+        )
 
     @property
     def status(self) -> str:

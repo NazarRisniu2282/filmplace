@@ -1,12 +1,13 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from rest_framework import serializers
 from django.utils import timezone
-from datetime import timedelta
+from rest_framework import serializers
 
-from .models import Booking, Movie, Showtime, Hall
+from .models import Booking, Hall, Movie, Showtime
 
 User = get_user_model()
 
@@ -71,35 +72,18 @@ class HallSerializer(serializers.ModelSerializer):
 
 
 class ShowtimeSerializer(serializers.ModelSerializer):
-    movie = MovieSerializer(read_only=True)
-    movie_id = serializers.PrimaryKeyRelatedField(
-        queryset=Movie.objects.all(), source="movie", write_only=True
-    )
-    hall = HallSerializer(read_only=True)
-    hall_id = serializers.PrimaryKeyRelatedField(
-        queryset=Hall.objects.all(), source="hall", write_only=True
-    )
-    is_expired = serializers.ReadOnlyField()
-    is_active = serializers.ReadOnlyField()
-
-    total_seats = serializers.ReadOnlyField()
-    booked_seats_count = serializers.ReadOnlyField()
-    free_seats_count = serializers.ReadOnlyField()
+    booked_seats_count = serializers.IntegerField(read_only=True)
+    free_seats_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Showtime
         fields = [
             "id",
             "movie",
-            "movie_id",
             "hall",
-            "hall_id",
             "start_time",
             "end_time",
             "price",
-            "is_expired",
-            "is_active",
-            "total_seats",
             "booked_seats_count",
             "free_seats_count",
         ]
@@ -197,7 +181,7 @@ class BookingCreateSerializer(serializers.Serializer):
                 showtime=showtime,
                 row=seat["row"],
                 place=seat["place"],
-                expires_at=expires_time,  
+                expires_at=expires_time,
             )
             for seat in seats
         ]

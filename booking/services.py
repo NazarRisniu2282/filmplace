@@ -1,10 +1,12 @@
 import io
-import qrcode
 from email.mime.image import MIMEImage
 
+import qrcode
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.core.signing import TimestampSigner # Використовуємо криптографічний підпис Django
+from django.core.signing import (
+    TimestampSigner,  # Використовуємо криптографічний підпис Django
+)
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
@@ -18,7 +20,7 @@ def send_booking_confirmation_email(bookings):
 
     first_booking = bookings[0]
     user = first_booking.user
-    
+
     if not user.email:
         return
 
@@ -33,17 +35,14 @@ def send_booking_confirmation_email(bookings):
     subject = f"Підтвердження бронювання — {movie_title}"
 
     booking_ids = [b.id for b in bookings]
-    
-    payload = {
-        "showtime_id": showtime.id,
-        "booking_ids": booking_ids
-    }
+
+    payload = {"showtime_id": showtime.id, "booking_ids": booking_ids}
 
     signer = TimestampSigner()
     signed_token = signer.sign_object(payload)
 
     qr_data = signed_token
-    
+
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -55,20 +54,20 @@ def send_booking_confirmation_email(bookings):
 
     img = qr.make_image(fill_color="black", back_color="white")
     buffer = io.BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     qr_bytes = buffer.getvalue()
 
     context = {
-        'movie_title': movie_title,
-        'user_name': user_name,
-        'user_phone': user_phone,
-        'showtime_str': showtime_str,
-        'hall': hall,
-        'bookings_count': len(bookings),
-        'seats': bookings,
+        "movie_title": movie_title,
+        "user_name": user_name,
+        "user_phone": user_phone,
+        "showtime_str": showtime_str,
+        "hall": hall,
+        "bookings_count": len(bookings),
+        "seats": bookings,
     }
 
-    html_content = render_to_string('emails/booking_confirmation.html', context)
+    html_content = render_to_string("emails/booking_confirmation.html", context)
     text_content = strip_tags(html_content)
 
     msg = EmailMultiAlternatives(
@@ -80,8 +79,8 @@ def send_booking_confirmation_email(bookings):
     msg.attach_alternative(html_content, "text/html")
 
     mime_image = MIMEImage(qr_bytes)
-    mime_image.add_header('Content-ID', '<booking_qr_code>')
-    mime_image.add_header('Content-Disposition', 'inline', filename='qr_code.png')
+    mime_image.add_header("Content-ID", "<booking_qr_code>")
+    mime_image.add_header("Content-Disposition", "inline", filename="qr_code.png")
     msg.attach(mime_image)
 
     msg.send(fail_silently=False)
