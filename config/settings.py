@@ -16,7 +16,7 @@ DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    ".railway.app", 
+    ".railway.app",
     "filmplace-production.up.railway.app",
 ]
 
@@ -141,7 +141,7 @@ CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_BEAT_SCHEDULE = {
     "cleanup-expired-bookings-every-minute": {
-        "task": "your_app_name.tasks.cleanup_expired_bookings_task",
+        "task": "booking.tasks.cleanup_expired_bookings_task",
         "schedule": 60.0,
     },
 }

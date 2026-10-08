@@ -33,4 +33,4 @@ USER appuser
 EXPOSE 8000
 
 # 10. Команда запуску за замовчуванням (Production WSGI)
-CMD ["gunicorn", "filmplace.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2"]
+CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 2"]
