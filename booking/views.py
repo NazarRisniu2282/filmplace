@@ -55,7 +55,7 @@ class MovieViewSet(viewsets.ModelViewSet):
 class ShowtimeViewSet(viewsets.ModelViewSet):
     queryset = (
         Showtime.objects.select_related("movie", "hall")
-        .annotate(booked_seats_count=Count("bookings"))
+        .annotate(_booked_seats_count=Count("bookings"))
         .all()
         .order_by("start_time")
     )
